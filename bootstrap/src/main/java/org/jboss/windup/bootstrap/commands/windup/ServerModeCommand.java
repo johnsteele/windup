@@ -13,7 +13,7 @@ import org.jboss.windup.bootstrap.commands.Command;
 import org.jboss.windup.bootstrap.commands.CommandPhase;
 import org.jboss.windup.bootstrap.commands.CommandResult;
 import org.jboss.windup.bootstrap.commands.addons.AddImmutableAddonDirectoryCommand;
-import org.jboss.windup.tooling.ExecutionBuilder;
+import org.jboss.windup.tooling.ToolingRMIServer;
 
 public class ServerModeCommand implements Command 
 {
@@ -87,21 +87,10 @@ public class ServerModeCommand implements Command
         return Integer.valueOf(serverPortString);
 	}
 
-	private void startServer() 
+	private void startServer()
 	{
-		try 
-		{
-			System.setProperty("java.rmi.server.hostname","192.168.1.2");
-			//System.setProperty("java.security.policy", "all.policy");
-			ExecutionBuilder executionBuilder = furnace.getAddonRegistry().getServices(ExecutionBuilder.class).get();
-			ExecutionBuilder proxy = (ExecutionBuilder)UnicastRemoteObject.exportObject(executionBuilder, 0);
-			Registry registry = LocateRegistry.createRegistry(port);
-			registry.rebind(ExecutionBuilder.LOOKUP_NAME, proxy);
-			System.out.println("Registered ExecutionBuilder at: " + registry);
-		} catch (RemoteException e) {
-			System.out.println("Bootstrap error while registering ExecutionBuilder...");
-			e.printStackTrace();
-		}
+		System.out.println("Calling ToolingRMIServer start...");
+		furnace.getAddonRegistry().getServices(ToolingRMIServer.class).get().startServer(port);
     }
 	
 	// TODO: Not sure if this is necessary, or if killing the processes is sufficient.

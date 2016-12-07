@@ -17,10 +17,6 @@
             <version>1.6.1</version>
         </dependency>
         <dependency>
-            <groupId>org.jboss.windup</groupId>
-            <artifactId>windup-tooling-api</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.jboss.windup.config</groupId>
             <artifactId>windup-config-api</artifactId>
         </dependency>
@@ -75,6 +71,10 @@
                     <artifactId>windup-rules-base</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.windup</groupId>
+            <artifactId>windup-tooling-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.jboss.windup.utils</groupId>
