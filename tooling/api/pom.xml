@@ -11,9 +11,22 @@
     <artifactId>windup-tooling-api</artifactId>
     <name>Windup Tooling - API</name>
 
+    <properties>
+        <vertx.version>3.5.2</vertx.version>
+    </properties>
+
     <dependencies>
         <!-- Local Dependencies -->
-
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-core</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.vertx</groupId>
+            <artifactId>vertx-web</artifactId>
+            <version>${vertx.version}</version>
+        </dependency>
         <!-- Furnace Container -->
         <dependency>
             <groupId>org.jboss.forge.furnace.container</groupId>
