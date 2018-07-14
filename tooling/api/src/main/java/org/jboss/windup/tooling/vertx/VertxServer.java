@@ -13,6 +13,7 @@ import io.vertx.ext.web.handler.sockjs.BridgeOptions;
 import io.vertx.ext.web.handler.sockjs.PermittedOptions;
 import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 
+@SuppressWarnings("deprecation")
 public class VertxServer extends AbstractVerticle {
 	
 	private static Logger LOG = Logger.getLogger(VertxServer.class.getName());
@@ -23,6 +24,8 @@ public class VertxServer extends AbstractVerticle {
 	@Override
 	public void start() throws Exception {
 
+		LOG.info("VertxServer starting HTTP server...");
+		
 		Router router = Router.router(vertx);
 
 		BridgeOptions opts = new BridgeOptions().addInboundPermitted(new PermittedOptions().setAddress(SERVER_BUS))
@@ -42,7 +45,14 @@ public class VertxServer extends AbstractVerticle {
 		router.post("/stop").handler(this::stop);
 		router.post("/analyze").handler(this::analyze);
 
-		vertx.createHttpServer().requestHandler(router::accept).listen(8080);
+		vertx.createHttpServer().requestHandler(router::accept).listen(8080, r -> {
+			if (r.succeeded()) {
+				LOG.info("VertxServer starting HTTP server...");
+			}
+			else {
+				LOG.info("VertxServer HTTP server FAILED to start...");
+			}
+		});
 	}
 
 	private void start(RoutingContext routingContext) {
