@@ -10,7 +10,7 @@ import org.jboss.windup.bootstrap.commands.Command;
 import org.jboss.windup.bootstrap.commands.CommandPhase;
 import org.jboss.windup.bootstrap.commands.CommandResult;
 import org.jboss.windup.bootstrap.commands.addons.AddImmutableAddonDirectoryCommand;
-import org.jboss.windup.tooling.ToolingRMIServer;
+import org.jboss.windup.tooling.ToolingHttpServer;
 import org.jboss.windup.util.Util;
 
 public class ServerModeCommand implements Command
@@ -90,8 +90,8 @@ public class ServerModeCommand implements Command
 
     private void startServer()
     {
-        System.out.println("Calling ToolingRMIServer start...");
-        furnace.getAddonRegistry().getServices(ToolingRMIServer.class).get().startServer(port, Bootstrap.getVersion());
+        System.out.println("Calling ToolingHttpServer start...");
+        furnace.getAddonRegistry().getServices(ToolingHttpServer.class).get().startServer(port, Bootstrap.getVersion());
     }
 
     // TODO: Not sure if this is necessary, or if killing the processes is sufficient.

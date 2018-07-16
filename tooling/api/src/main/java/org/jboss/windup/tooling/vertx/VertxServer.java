@@ -1,6 +1,11 @@
 package org.jboss.windup.tooling.vertx;
 
+import java.rmi.RemoteException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Logger;
+
+import org.jboss.windup.tooling.ExecutionBuilder;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.EventBus;
@@ -21,10 +26,16 @@ public class VertxServer extends AbstractVerticle {
 	private static final String SERVER_BUS = "rhamt.server";
 	private static final String CLIENT_BUS = "rhamt.client";
 
+	private ExecutionBuilder executionBuilder;
+
+	public VertxServer(ExecutionBuilder executionBuilder) {
+		this.executionBuilder = executionBuilder;
+	}
+
 	@Override
 	public void start() throws Exception {
 
-		LOG.info("VertxServer starting HTTP server...");
+		System.out.println("VertxServer starting HTTP server...");
 		
 		Router router = Router.router(vertx);
 
@@ -71,6 +82,22 @@ public class VertxServer extends AbstractVerticle {
 
 	private void analyze(RoutingContext routingContext) {
 		HttpServerResponse response = routingContext.response();
+
+		Set<String> input = new HashSet<String>();
+		input.add("/Users/johnsteele/Desktop/demos/demo");
+
+		try {
+			executionBuilder.setInput(input);
+			executionBuilder.setOutput("/Users/johnsteele/Desktop/demos/demo/out");
+			executionBuilder.setProgressMonitor(new ProgressMonitor());
+			executionBuilder.setOption(IOptionKeys.sourceModeOption, true);
+		}
+		catch (RemoteException e) {
+			LOG.severe("Server `RemoteException` error while performing analysis.");
+            e.printStackTrace();
+		}
+		
+
 		JsonObject data = new JsonObject();
 		data.put("status", "analyzed");
 		response.putHeader("content-type", "application/json").end(data.encodePrettily());
