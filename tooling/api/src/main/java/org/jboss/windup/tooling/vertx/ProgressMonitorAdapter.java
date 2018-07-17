@@ -9,6 +9,8 @@ public class ProgressMonitorAdapter implements IProgressMonitorAdapter, WindupTo
 
     //private static Logger LOG = Logger.getLogger(ProgressMonitorAdapter.class.getName());
 
+    private boolean isCancelled;
+
     @Override
     public void beginTask(String task, int totalWork) {
         System.out.println("beginTask");
@@ -26,12 +28,13 @@ public class ProgressMonitorAdapter implements IProgressMonitorAdapter, WindupTo
     @Override
 	public boolean isCancelled() { 
         System.out.println("isCancelled");
-        return false; // this.isCancelled;
+        return isCancelled; // this.isCancelled;
     }
     
     @Override
     public void setCancelled(boolean value) {
         System.out.println("setCancelled");
+        this.isCancelled = value;
         //this.isCancelled = value;
         //LOG.info("cancelled: " + value);
         //send("cancelled", value);

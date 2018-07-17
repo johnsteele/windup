@@ -107,6 +107,10 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
     }
 
     public void dispose() {
+        IProgressMonitorAdapter monitor = (IProgressMonitorAdapter)progressMonitor;
+        if (progressMonitor != null && !monitor.isCancelled()) {
+            monitor.setCancelled(true);
+        }
         System.out.println("disposed");
         System.out.println("disposing...");
         if (consumer.isRegistered()) {

@@ -48,7 +48,6 @@ public class VertxServer extends AbstractVerticle {
 
 		router.route().handler(BodyHandler.create());
 		router.post("/start").handler(this::start);
-		router.post("/stop/:id").handler(this::stop);
 
 		vertx.createHttpServer().requestHandler(router::accept).listen(8080, r -> {
 			if (r.succeeded()) {
@@ -83,21 +82,5 @@ public class VertxServer extends AbstractVerticle {
 			System.out.println("analysis done.");
 		});
 		System.out.println("finished setting up anslysis worker. waiting for it to be deployed...");
-	}
-
-	private void stop(RoutingContext routingContext) {
-		HttpServerResponse response = routingContext.response();
-		JsonObject result = new JsonObject();
-		String id = routingContext.request().getParam("id");
-		if (analysis != null && analysis.isAnalysis(id)) {
-			result.put("stopping", id);
-			System.out.println("attempting to stop analsyis.");
-			analysis.dispose();
-			System.out.println("analysis disposed.");
-		}
-		else {
-			result.put("anslysisDeosntExist", id);
-		}
-		response.putHeader("content-type", "application/json").end(result.encodePrettily());
 	}
 }
