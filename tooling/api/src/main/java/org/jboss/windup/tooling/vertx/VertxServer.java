@@ -1,13 +1,9 @@
 package org.jboss.windup.tooling.vertx;
 
-import java.rmi.RemoteException;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.logging.Logger;
-
 import org.jboss.windup.tooling.ExecutionBuilder;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -21,12 +17,11 @@ import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 @SuppressWarnings("deprecation")
 public class VertxServer extends AbstractVerticle {
 	
-	private static Logger LOG = Logger.getLogger(VertxServer.class.getName());
-
-	private static final String SERVER_BUS = "rhamt.server";
-	private static final String CLIENT_BUS = "rhamt.client";
+	public static final String SERVER_BUS = "rhamt.server.*";
+	public static final String CLIENT_BUS = "rhamt.client.*";
 
 	private ExecutionBuilder executionBuilder;
+	private Analysis analysis;
 
 	public VertxServer(ExecutionBuilder executionBuilder) {
 		this.executionBuilder = executionBuilder;
@@ -39,8 +34,8 @@ public class VertxServer extends AbstractVerticle {
 		
 		Router router = Router.router(vertx);
 
-		BridgeOptions opts = new BridgeOptions().addInboundPermitted(new PermittedOptions().setAddress(SERVER_BUS))
-				.addOutboundPermitted(new PermittedOptions().setAddress(CLIENT_BUS));
+		BridgeOptions opts = new BridgeOptions().addInboundPermitted(new PermittedOptions().setAddressRegex(SERVER_BUS))
+				.addOutboundPermitted(new PermittedOptions().setAddressRegex(CLIENT_BUS));
 
 		SockJSHandler ebHandler = SockJSHandler.create(vertx).bridge(opts);
 		router.route("/eventbus/*").handler(ebHandler);
@@ -53,53 +48,56 @@ public class VertxServer extends AbstractVerticle {
 
 		router.route().handler(BodyHandler.create());
 		router.post("/start").handler(this::start);
-		router.post("/stop").handler(this::stop);
-		router.post("/analyze").handler(this::analyze);
+		router.post("/stop/:id").handler(this::stop);
 
 		vertx.createHttpServer().requestHandler(router::accept).listen(8080, r -> {
 			if (r.succeeded()) {
-				LOG.info("VertxServer starting HTTP server...");
+				System.out.println("VertxServer starting HTTP server...");
 			}
 			else {
-				LOG.info("VertxServer HTTP server FAILED to start...");
+				System.err.println("VertxServer HTTP server FAILED to start...");
 			}
 		});
 	}
 
 	private void start(RoutingContext routingContext) {
+		System.out.println("analyze...");
 		HttpServerResponse response = routingContext.response();
+		String id = routingContext.request().getParam("id");
 		JsonObject data = new JsonObject();
-		data.put("status", "started");
-		response.putHeader("content-type", "application/json").end(data.encodePrettily());
+		data.put("attempting to analyze", id);
+		if (analysis != null && !analysis.isComplete()) {
+			data.put("Cannot start analysis. Previous analysis still in progress", id);
+			response.putHeader("content-type", "application/json").end(data.encodePrettily());
+			return;
+		}
+		System.out.println("analyzing: " + id);
+		DeploymentOptions options = new DeploymentOptions().setWorker(true);
+		this.analysis = new Analysis(executionBuilder, id);
+		vertx.deployVerticle(analysis, options, (e) -> {
+			System.out.println("analysis worker deployed.");
+			data.put("analsysisDeployed", id);
+			response.putHeader("content-type", "application/json").end(data.encodePrettily());
+			System.out.println("analysis beginning now.");
+			analysis.analyze();
+			System.out.println("analysis done.");
+		});
+		System.out.println("finished setting up anslysis worker. waiting for it to be deployed...");
 	}
 
 	private void stop(RoutingContext routingContext) {
 		HttpServerResponse response = routingContext.response();
-		JsonObject data = new JsonObject();
-		data.put("status", "stopped");
-		response.putHeader("content-type", "application/json").end(data.encodePrettily());
-	}
-
-	private void analyze(RoutingContext routingContext) {
-		HttpServerResponse response = routingContext.response();
-
-		Set<String> input = new HashSet<String>();
-		input.add("/Users/johnsteele/Desktop/demos/demo");
-
-		try {
-			executionBuilder.setInput(input);
-			executionBuilder.setOutput("/Users/johnsteele/Desktop/demos/demo/out");
-			executionBuilder.setProgressMonitor(new ProgressMonitor());
-			executionBuilder.setOption(IOptionKeys.sourceModeOption, true);
+		JsonObject result = new JsonObject();
+		String id = routingContext.request().getParam("id");
+		if (analysis != null && analysis.isAnalysis(id)) {
+			result.put("stopping", id);
+			System.out.println("attempting to stop analsyis.");
+			analysis.dispose();
+			System.out.println("analysis disposed.");
 		}
-		catch (RemoteException e) {
-			LOG.severe("Server `RemoteException` error while performing analysis.");
-            e.printStackTrace();
+		else {
+			result.put("anslysisDeosntExist", id);
 		}
-		
-
-		JsonObject data = new JsonObject();
-		data.put("status", "analyzed");
-		response.putHeader("content-type", "application/json").end(data.encodePrettily());
+		response.putHeader("content-type", "application/json").end(result.encodePrettily());
 	}
 }

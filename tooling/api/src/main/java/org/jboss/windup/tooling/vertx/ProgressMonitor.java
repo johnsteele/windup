@@ -4,56 +4,57 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 
+import org.jboss.windup.tooling.IProgressMonitorAdapter;
 import org.jboss.windup.tooling.WindupToolingProgressMonitor;
 
 public class ProgressMonitor extends UnicastRemoteObject implements WindupToolingProgressMonitor, Remote {
 
 	private static final long serialVersionUID = 1L;
 
-	private static Logger LOG = Logger.getLogger(ProgressMonitor.class.getName());
+	private final IProgressMonitorAdapter delegate;
     
-    public ProgressMonitor() throws RemoteException {
-    }
+    public ProgressMonitor(IProgressMonitorAdapter delegate) throws RemoteException {
+		this.delegate = delegate;
+	}
 
 	@Override
 	public void beginTask(String task, int totalWork) throws RemoteException {
-		LOG.info("beginTask: " + task + "totalWork: " + totalWork);
+		delegate.beginTask(task, totalWork);
 	}
 
 	@Override
 	public void done() throws RemoteException {
-		LOG.info("done");
+		delegate.done();
 	}
 
 	@Override
 	public boolean isCancelled() throws RemoteException {
-		return false;
+		return delegate.isCancelled();
 	}
 
 	@Override
 	public void setCancelled(boolean value) throws RemoteException {
-		LOG.info("cancelled: " + value);
+		delegate.setCancelled(value);
 	}
 
 	@Override
 	public void setTaskName(String name) throws RemoteException {
-		LOG.info("setTaskName: " + name);
+		delegate.setTaskName(name);	
 	}
 
 	@Override
 	public void subTask(String name) throws RemoteException {
-		LOG.info("setTask: " + name);
+		delegate.subTask(name);
 	}
 
 	@Override
 	public void worked(int work) throws RemoteException {
-		LOG.info("worked: " + work);
+		delegate.worked(work);
 	}
 
 	@Override
 	public void logMessage(LogRecord logRecord) {
-		LOG.info("logMessage: " + logRecord.getMessage());
+		delegate.logMessage(logRecord);
 	}
 }
