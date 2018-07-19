@@ -26,7 +26,7 @@ public class ToolingHttpServer implements ToolingServer {
         {
 			executionBuilder.setVersion(version);
 			VertxService vertxService = new VertxService();
-			VertxServer server = new VertxServer(executionBuilder);
+			VertxServer server = new VertxServer(executionBuilder, port);
 			vertxService.getVertx().deployVerticle(server);
 		}
 		catch (RemoteException e)

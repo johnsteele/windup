@@ -21,10 +21,12 @@ public class VertxServer extends AbstractVerticle {
 	public static final String CLIENT_BUS = "rhamt.client.*";
 
 	private ExecutionBuilder executionBuilder;
+	private int port;
 	private Analysis analysis;
 
-	public VertxServer(ExecutionBuilder executionBuilder) {
+	public VertxServer(ExecutionBuilder executionBuilder, int port) {
 		this.executionBuilder = executionBuilder;
+		this.port = port;
 	}
 
 	@Override
@@ -47,11 +49,11 @@ public class VertxServer extends AbstractVerticle {
 		});
 
 		router.route().handler(BodyHandler.create());
-		router.post("/start").handler(this::start);
+		router.post("/analyze").handler(this::analyze);
 
-		vertx.createHttpServer().requestHandler(router::accept).listen(8080, r -> {
+		vertx.createHttpServer().requestHandler(router::accept).listen(port, r -> {
 			if (r.succeeded()) {
-				System.out.println("VertxServer starting HTTP server...");
+				System.out.println("rhamt server listening on " + port);
 			}
 			else {
 				System.err.println("VertxServer HTTP server FAILED to start...");
@@ -59,17 +61,17 @@ public class VertxServer extends AbstractVerticle {
 		});
 	}
 
-	private void start(RoutingContext routingContext) {
+	private void analyze(RoutingContext routingContext) {
 		System.out.println("analyze...");
 		HttpServerResponse response = routingContext.response();
 		String id = routingContext.request().getParam("id");
 		JsonObject data = new JsonObject();
-		data.put("attempting to analyze", id);
-		if (analysis != null && !analysis.isComplete()) {
-			data.put("Cannot start analysis. Previous analysis still in progress", id);
+		if (analysis != null) {
+			data.put("Cannot start analysis. Previous analysis still in progress.", id);
 			response.putHeader("content-type", "application/json").end(data.encodePrettily());
 			return;
 		}
+		data.put("attempting to analyze", id);
 		System.out.println("analyzing: " + id);
 		DeploymentOptions options = new DeploymentOptions().setWorker(true);
 		this.analysis = new Analysis(executionBuilder, id);
@@ -80,6 +82,7 @@ public class VertxServer extends AbstractVerticle {
 			System.out.println("analysis beginning now.");
 			analysis.analyze();
 			System.out.println("analysis done.");
+			analysis = null;
 		});
 		System.out.println("finished setting up anslysis worker. waiting for it to be deployed...");
 	}

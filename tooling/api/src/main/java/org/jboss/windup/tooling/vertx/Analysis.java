@@ -1,12 +1,10 @@
 package org.jboss.windup.tooling.vertx;
 
-import java.rmi.RemoteException;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 
 import com.google.common.base.Objects;
+import java.util.logging.LogRecord;
 
 import org.jboss.windup.tooling.ExecutionBuilder;
 import org.jboss.windup.tooling.ExecutionResults;
@@ -21,20 +19,20 @@ import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 
-public class Analysis extends AbstractVerticle implements Handler<Message<Void>> {
+public class Analysis extends AbstractVerticle implements IProgressMonitorAdapter, Handler<Message<Void>> {
 
-    private boolean isComplete;
     private boolean isCancelled;
     private final String id;
     private final String path;
     private MessageConsumer<Void> consumer;
     private final ExecutionBuilder executionBuilder;
-    private WindupToolingProgressMonitor progressMonitor;
+    private IProgressMonitorAdapter progressMonitor;
 
     public Analysis(ExecutionBuilder executionBuilder, String id) {
         this.executionBuilder = executionBuilder;
         this.id = id;
         this.path = VertxServer.SERVER_BUS+"."+id;
+        this.progressMonitor = new ProgressMonitorAdapter(this);
     }
 
     @Override
@@ -48,11 +46,9 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
     }
 
     public void analyze() {
-        isComplete = false;
         System.out.println("Starting analysis...");
         Set<String> input = new HashSet<String>();
 		input.add("/Users/johnsteele/Desktop/demos/demo");
-        this.progressMonitor = new ProgressMonitorAdapter();
         
 		try {
             System.out.println("Setting up executionBuilder.");
@@ -61,7 +57,7 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
             System.out.println("Setting up executionBuilder.1");
             executionBuilder.setOutput("/Users/johnsteele/Desktop/demos/demo/out");
             System.out.println("Setting up executionBuilder.2");
-            executionBuilder.setProgressMonitor(progressMonitor);
+            executionBuilder.setProgressMonitor((WindupToolingProgressMonitor)progressMonitor);
             System.out.println("Setting up executionBuilder.3");
             executionBuilder.setWindupHome(PathUtil.getWindupHome().toString());
             System.out.println("Setting up executionBuilder.4");
@@ -107,11 +103,6 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
     }
 
     public void dispose() {
-        IProgressMonitorAdapter monitor = (IProgressMonitorAdapter)progressMonitor;
-        if (progressMonitor != null && !monitor.isCancelled()) {
-            monitor.setCancelled(true);
-        }
-        System.out.println("disposed");
         System.out.println("disposing...");
         if (consumer.isRegistered()) {
             System.out.println("unregistering event consumer...");
@@ -125,7 +116,6 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
             System.out.println("undeploying analysis worker");
             vertx.undeploy(deploymentID(), (e) -> {
                 System.out.println("verticle undeployed...");
-                isComplete = true;
             });
             System.out.println("unregistering event consumer...");
         }
@@ -136,7 +126,68 @@ public class Analysis extends AbstractVerticle implements Handler<Message<Void>>
         event.reply(null);
     }
 
-    boolean isComplete() {
-        return isComplete;
+
+    @Override
+    public void beginTask(String task, int totalWork) {
+        System.out.println("Analysis::beginTask");
+        send("beginTask: " + task, totalWork);
+        //LOG.info("beginTask: " + task + "totalWork: " + totalWork);
+    }
+
+    @Override
+    public void done() {
+        System.out.println("Analysis::done");
+        send("done", true);
+        //LOG.info("done");
+        //send("done", true);
+        //dispose();
+    }
+
+    @Override
+    public boolean isCancelled() { 
+        System.out.println("Analysis::isCancelled");
+        return isCancelled;
+    }
+    
+    @Override
+    public void setCancelled(boolean value) {
+        System.out.println("Analysis::setCancelled");
+        send("receivedCancelEvent", value);
+        this.isCancelled = value;
+        //this.isCancelled = value;
+        //LOG.info("cancelled: " + value);
+        //send("cancelled", value);
+        ////if (isCancelled) {
+        //    dispose();
+        //}
+    }
+
+    @Override
+    public void setTaskName(String name) {
+        System.out.println("Analysis::setTaskName");
+        send("setTaskName", name);
+        //LOG.info("setTaskName: " + name);
+        //send("taskName", name);
+    }
+
+    @Override
+    public void subTask(String name) {
+        System.out.println("Analysis::subTask");
+        send("subTask", name);
+        //LOG.info("subTask: " + name);
+        //send("subTask", name);
+    }
+
+    @Override
+    public void logMessage(LogRecord logRecord) {
+        System.out.println("Analysis::logMessage: " + logRecord.getMessage());
+        send("logMessage", logRecord.getMessage());
+        //LOG.info("logMessage: " + logRecord.getMessage());
+        //send("logMessage", logRecord.getMessage());
+    }
+    @Override
+    public void worked(int work) {
+        System.out.println("Analysis::worked: " + work);
+        send("worked", work);
     }
 }
