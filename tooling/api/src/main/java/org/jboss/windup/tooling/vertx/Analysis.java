@@ -1,9 +1,7 @@
 package org.jboss.windup.tooling.vertx;
 
-import java.util.HashSet;
 import java.util.Set;
 
-import com.google.common.base.Objects;
 import java.util.logging.LogRecord;
 
 import org.jboss.windup.tooling.ExecutionBuilder;
@@ -14,180 +12,131 @@ import org.jboss.windup.tooling.WindupToolingProgressMonitor;
 import org.jboss.windup.util.PathUtil;
 
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.Handler;
-import io.vertx.core.eventbus.Message;
-import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.json.JsonObject;
 
-public class Analysis extends AbstractVerticle implements IProgressMonitorAdapter, Handler<Message<Void>> {
+public class Analysis extends AbstractVerticle implements IProgressMonitorAdapter {
 
     private boolean isCancelled;
-    private final String id;
-    private final String path;
-    private MessageConsumer<Void> consumer;
+    //private final String id;
+    //private final String path;
+    private final String client;
+    //private MessageConsumer<Void> consumer;
     private final ExecutionBuilder executionBuilder;
     private IProgressMonitorAdapter progressMonitor;
 
-    public Analysis(ExecutionBuilder executionBuilder, String id) {
+    private boolean done; 
+    private boolean cancelled;
+
+    public Analysis(String client, ExecutionBuilder executionBuilder) {
         this.executionBuilder = executionBuilder;
-        this.id = id;
-        this.path = VertxServer.SERVER_BUS+"."+id;
+        this.client = client;
         this.progressMonitor = new ProgressMonitorAdapter(this);
     }
 
-    @Override
-    public void start() throws Exception {
-        System.out.println("analysis verticle start().");
-        this.consumer = vertx.eventBus().consumer(path, this);
+    public void analyze(Set<String> input, String output) {
+        vertx.executeBlocking(f -> {
+            System.out.println("Starting analysis...");
+            vertx.eventBus().send(client, new JsonObject().put("state", "Starting Analysis..."));
+            try {
+                System.out.println("Setting up executionBuilder.");
+                executionBuilder.clear();
+                executionBuilder.setInput(input);
+                System.out.println("Setting up executionBuilder.1");
+                executionBuilder.setOutput(output);
+                System.out.println("Setting up executionBuilder.2");
+                executionBuilder.setProgressMonitor((WindupToolingProgressMonitor)progressMonitor);
+                System.out.println("Setting up executionBuilder.3");
+                executionBuilder.setWindupHome(PathUtil.getWindupHome().toString());
+                System.out.println("Setting up executionBuilder.4");
+                executionBuilder.setOption(IOptionKeys.sourceModeOption, true);
+                System.out.println("Setting up executionBuilder.5");
+                executionBuilder.setOption(IOptionKeys.skipReportsRenderingOption, true);
+                System.out.println("Setting up executionBuilder.6");
+                executionBuilder.ignore("\\.class$");
+                System.out.println("about to run analysis.");
+                ExecutionResults results = executionBuilder.execute();
+                vertx.eventBus().send(client, new JsonObject().put("state", "done"));
+                System.out.println("executionBuilder returned.");
+                JsonObject data = new JsonObject();
+                data.put("status", "analyzed");
+                data.put("report", "/Users/johnsteele/Desktop/demos/demo/reports/index.html");
+                data.put("hintCount", results.getHints().size());
+                data.put("classificationCount", results.getClassifications().size());
+                System.out.println("analysis complete.");
+                System.out.println(data);
+            }
+            catch (Exception e) {
+                System.err.println("Error while running analysis.");
+                System.err.println(e.getMessage());
+                System.err.println("Server `RemoteException` error while performing analysis.");
+                //data.put("server error", e.getMessage());
+                e.printStackTrace();
+            }
+            finally {
+                System.out.println("analysis complete.");
+                //dispose();
+            }
+            f.complete();
+        }, (t) -> {
+            System.out.println("confirmation: " + t.toString());
+        });
     }
 
-    public boolean isAnalysis(String id) {
-        return Objects.equal(this.id, id);
+    private void send(String op, Object value) {
+        System.out.println("attempting to send client data: " + value);
+        JsonObject load = new JsonObject();
+        load.put("op", op);
+        load.put("value", value);
+        send(load);
     }
 
-    public void analyze() {
-        System.out.println("Starting analysis...");
-        Set<String> input = new HashSet<String>();
-		input.add("/Users/johnsteele/Desktop/demos/demo");
-        
-		try {
-            System.out.println("Setting up executionBuilder.");
-
-            executionBuilder.setInput(input);
-            System.out.println("Setting up executionBuilder.1");
-            executionBuilder.setOutput("/Users/johnsteele/Desktop/demos/demo/out");
-            System.out.println("Setting up executionBuilder.2");
-            executionBuilder.setProgressMonitor((WindupToolingProgressMonitor)progressMonitor);
-            System.out.println("Setting up executionBuilder.3");
-            executionBuilder.setWindupHome(PathUtil.getWindupHome().toString());
-            System.out.println("Setting up executionBuilder.4");
-            executionBuilder.setOption(IOptionKeys.sourceModeOption, true);
-            System.out.println("Setting up executionBuilder.5");
-            executionBuilder.setOption(IOptionKeys.skipReportsRenderingOption, true);
-            System.out.println("Setting up executionBuilder.6");
-            executionBuilder.ignore("\\.class$");
-            System.out.println("about to run analysis.");
-            ExecutionResults results = executionBuilder.execute();
-            System.out.println("executionBuilder returned.");
-            JsonObject data = new JsonObject();
-			data.put("status", "analyzed");
-			data.put("report", "/Users/johnsteele/Desktop/demos/demo/reports/index.html");
-			data.put("hintCount", results.getHints().size());
-            data.put("classificationCount", results.getClassifications().size());
-            
-            System.out.println("analysis complete.");
-            System.out.println(data);
-		}
-		catch (Exception e) {
-            System.err.println("Error while running analysis.");
-			System.err.println(e.getMessage());
-			System.err.println("Server `RemoteException` error while performing analysis.");
-			//data.put("server error", e.getMessage());
-            e.printStackTrace();
-        }
-        finally {
-            System.out.println("analysis complete.");
-            dispose();
-        }
+    private void send(JsonObject data) {
+        vertx.eventBus().send(client, data);
     }
-
-    private void send(String key, Object value) {
-        JsonObject payload = new JsonObject();
-        payload.put(key, value);
-        send(payload);
-    }
-
-    public void send(Object data) {
-        System.out.println("eb sending: " + data);
-        vertx.eventBus().send(path, data);
-    }
-
-    public void dispose() {
-        System.out.println("disposing...");
-        if (consumer.isRegistered()) {
-            System.out.println("unregistering event consumer...");
-            System.out.println("unregistering");
-            consumer.unregister(((e) -> {
-                System.out.println("event consumer unregistered...");
-                send("consumer unregistered", id);
-            }));
-        }
-        if (context != null) {
-            System.out.println("undeploying analysis worker");
-            vertx.undeploy(deploymentID(), (e) -> {
-                System.out.println("verticle undeployed...");
-            });
-            System.out.println("unregistering event consumer...");
-        }
-    }
-
-    @Override
-    public void handle(Message<Void> event) {
-        event.reply(null);
-    }
-
 
     @Override
     public void beginTask(String task, int totalWork) {
-        System.out.println("Analysis::beginTask");
-        send("beginTask: " + task, totalWork);
-        //LOG.info("beginTask: " + task + "totalWork: " + totalWork);
+        System.out.println("beginTask");
+        JsonObject load = new JsonObject();
+        load.put("op", "beginTask");
+        load.put("task", task);
+        load.put("totalWork", totalWork);
+        send(load);
     }
 
     @Override
     public void done() {
-        System.out.println("Analysis::done");
         send("done", true);
-        //LOG.info("done");
-        //send("done", true);
-        //dispose();
+        this.done = true;
     }
 
     @Override
-    public boolean isCancelled() { 
-        System.out.println("Analysis::isCancelled");
+    public boolean isCancelled() {
         return isCancelled;
     }
     
     @Override
     public void setCancelled(boolean value) {
-        System.out.println("Analysis::setCancelled");
-        send("receivedCancelEvent", value);
+        send("setCancelled", value);
         this.isCancelled = value;
-        //this.isCancelled = value;
-        //LOG.info("cancelled: " + value);
-        //send("cancelled", value);
-        ////if (isCancelled) {
-        //    dispose();
-        //}
     }
 
     @Override
     public void setTaskName(String name) {
-        System.out.println("Analysis::setTaskName");
         send("setTaskName", name);
-        //LOG.info("setTaskName: " + name);
-        //send("taskName", name);
     }
 
     @Override
     public void subTask(String name) {
-        System.out.println("Analysis::subTask");
         send("subTask", name);
-        //LOG.info("subTask: " + name);
-        //send("subTask", name);
     }
 
     @Override
     public void logMessage(LogRecord logRecord) {
-        System.out.println("Analysis::logMessage: " + logRecord.getMessage());
         send("logMessage", logRecord.getMessage());
-        //LOG.info("logMessage: " + logRecord.getMessage());
-        //send("logMessage", logRecord.getMessage());
     }
     @Override
     public void worked(int work) {
-        System.out.println("Analysis::worked: " + work);
         send("worked", work);
     }
 }
